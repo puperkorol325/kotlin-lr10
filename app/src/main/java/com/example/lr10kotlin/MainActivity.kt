@@ -23,6 +23,7 @@ import kotlin.text.Regex
 import kotlinx.coroutines.flow.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import kotlin.random.Random
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -31,7 +32,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             Lr10kotlinTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    StateFlowScreen(modifier = Modifier.padding(innerPadding))
+                    SharedFlowScreen(modifier = Modifier.padding(innerPadding))
                 }
             }
         }
@@ -272,7 +273,6 @@ fun StateFlowScreen(modifier: Modifier) {
     val counter: StateFlow<Int> = counterStateFlow.asStateFlow()
     val counterValue by counter.collectAsState()
 
-
     val isAutoIncrementingStateFlow = remember { MutableStateFlow(false) }
     val isAutoIncrementing: StateFlow<Boolean> = isAutoIncrementingStateFlow.asStateFlow()
     val isAutoIncrementingValue by isAutoIncrementing.collectAsState()
@@ -320,7 +320,8 @@ fun StateFlowScreen(modifier: Modifier) {
 
     Column(
         modifier = modifier
-            .fillMaxSize(),
+            .fillMaxSize()
+            .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -372,6 +373,140 @@ fun StateFlowScreen(modifier: Modifier) {
                 ButtonDefaults.buttonColors()
         ) {
             Text(if (isAutoIncrementingValue) "Остановить автоинкремент" else "Запустить автоинкремент")
+        }
+    }
+}
+
+@Composable
+fun SharedFlowScreen(modifier: Modifier) {
+
+    val eventsSharedFlow = remember { MutableSharedFlow<String>(replay = 3) }
+    val eventsFlow: SharedFlow<String> = eventsSharedFlow.asSharedFlow()
+
+    var events by remember { mutableStateOf<List<String>>(emptyList()) }
+    var eventCount by remember { mutableStateOf(0) }
+    var eventCounter by remember { mutableStateOf(0) }
+    var isAutoGenerating by remember { mutableStateOf(false) }
+
+    val scope = rememberCoroutineScope()
+    var autoGenerationJob by remember { mutableStateOf<Job?>(null) }
+
+    LaunchedEffect(Unit) {
+        eventsFlow.collect { event ->
+            events = (events + event).takeLast(10)
+            eventCount++
+        }
+    }
+
+    fun emitEvent(message: String) {
+        scope.launch {
+            eventsSharedFlow.emit(message)
+        }
+    }
+
+    fun startAutoGeneration() {
+        if (autoGenerationJob?.isActive == true) return
+
+        isAutoGenerating = true
+        autoGenerationJob = scope.launch {
+            while (true) {
+                delay(2000)
+                eventCounter++
+                val randomNumber = Random.nextInt(1, 101)
+                emitEvent("Событие #$eventCounter: $randomNumber")
+            }
+        }
+    }
+
+    fun stopAutoGeneration() {
+        isAutoGenerating = false
+        autoGenerationJob?.cancel()
+        autoGenerationJob = null
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            autoGenerationJob?.cancel()
+        }
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Всего событий: $eventCount", style = MaterialTheme.typography.titleMedium)
+
+            if (isAutoGenerating) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Автогенерация", color = MaterialTheme.colorScheme.primary)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) {
+            items(events.reversed()) { item ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor =
+                            MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Text(
+                        text = item,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            onClick = {
+                emitEvent("Ручное событие #${eventCount + 1}")
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isAutoGenerating
+        ) {
+            Text("Сгенерировать событие")
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Button(
+            onClick = {
+                if (isAutoGenerating) {
+                    stopAutoGeneration()
+                } else {
+                    startAutoGeneration()
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = if (isAutoGenerating)
+                ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+            else
+                ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+        ) {
+            Text(if (isAutoGenerating) "Остановить автогенерацию" else "Запустить автогенерацию")
         }
     }
 }
