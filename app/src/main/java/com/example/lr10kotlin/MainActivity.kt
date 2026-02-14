@@ -23,22 +23,71 @@ import kotlin.text.Regex
 import kotlinx.coroutines.flow.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.navigation.NavController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import kotlin.random.Random
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
         setContent {
             Lr10kotlinTheme {
+                val navController = rememberNavController();
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    SharedFlowScreen(modifier = Modifier.padding(innerPadding))
+                    NavHost(modifier= Modifier.padding(innerPadding), navController = navController, startDestination = Routes.HOME) {
+                        composable("Home") { HomeScreen(navController) }
+                        composable("Coroutines") { CoroutinesScreen() }
+                        composable("Flow") { FlowScreen() }
+                        composable("StateFlow") { StateFlowScreen() }
+                        composable("SharedFlow") { SharedFlowScreen() }
+                    }
                 }
             }
         }
     }
 }
 
+object Routes {
+    const val HOME = "Home"
+    const val COROUTINES = "Coroutines"
+    const val FLOW = "Flow"
+    const val STATEFLOW = "StateFlow"
+    const val SHAREDFLOW = "SharedFlow"
+}
+
+@Composable
+fun HomeScreen(navController: androidx.navigation.NavController) {
+    Column (modifier = Modifier.fillMaxSize()) {
+        Button(
+            onClick = { navController.navigate(Routes.COROUTINES) }
+        ) {
+            Text(Routes.COROUTINES)
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Button(
+            onClick = { navController.navigate(Routes.FLOW) }
+        ) {
+            Text(Routes.FLOW)
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Button(
+            onClick = { navController.navigate(Routes.STATEFLOW) }
+        ) {
+            Text(Routes.STATEFLOW)
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Button(
+            onClick = { navController.navigate(Routes.SHAREDFLOW) }
+        ) {
+            Text(Routes.SHAREDFLOW)
+        }
+    }
+}
 
 suspend fun simulateLongOperation(duration: Long): String {
     delay(duration)
@@ -185,12 +234,12 @@ fun errorFlow(): Flow<String> = flow {
 
 
 @Composable
-fun FlowScreen(modifier: Modifier) {
+fun FlowScreen() {
     var flowValues by remember { mutableStateOf<List<String>>(emptyList()) }
     val scope = rememberCoroutineScope()
 
     Column(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
@@ -267,7 +316,7 @@ fun FlowScreen(modifier: Modifier) {
 }
 
 @Composable
-fun StateFlowScreen(modifier: Modifier) {
+fun StateFlowScreen() {
 
     val counterStateFlow = remember { MutableStateFlow(0) }
     val counter: StateFlow<Int> = counterStateFlow.asStateFlow()
@@ -319,7 +368,7 @@ fun StateFlowScreen(modifier: Modifier) {
     }
 
     Column(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -378,7 +427,7 @@ fun StateFlowScreen(modifier: Modifier) {
 }
 
 @Composable
-fun SharedFlowScreen(modifier: Modifier) {
+fun SharedFlowScreen() {
 
     val eventsSharedFlow = remember { MutableSharedFlow<String>(replay = 3) }
     val eventsFlow: SharedFlow<String> = eventsSharedFlow.asSharedFlow()
@@ -431,7 +480,7 @@ fun SharedFlowScreen(modifier: Modifier) {
     }
 
     Column(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
