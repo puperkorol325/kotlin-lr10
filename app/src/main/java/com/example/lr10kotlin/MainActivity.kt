@@ -20,6 +20,9 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.*
 import kotlinx.coroutines.delay
 import kotlin.text.Regex
+import kotlinx.coroutines.flow.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,8 +30,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             Lr10kotlinTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) {
-                    CoroutinesScreen()
+                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    FlowScreen(modifier = Modifier.padding(innerPadding))
                 }
             }
         }
@@ -139,7 +142,10 @@ fun CoroutinesScreen() {
                         );
                         val sum = calculateSum(numbers)
                         result = "Сумма чисел: $sum"
-                    } finally {
+                    } catch (e: Exception) {
+                        result = "Ошибка"
+                    }
+                    finally {
                         isLoading = false
                     }
                 }
@@ -148,6 +154,113 @@ fun CoroutinesScreen() {
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Вычислить сумму")
+        }
+    }
+}
+
+
+
+
+fun numberFlow(): Flow<Int> = flow {
+    for (i in 1..10) {
+        delay(500)
+        emit(i)
+    }
+}
+
+fun transformedFlow(flow: Flow<Int>): Flow<Int> = flow
+    .map { it * it }
+    .filter { it % 2 == 0 }
+
+fun errorFlow(): Flow<String> = flow {
+    emit("Первое значение")
+    delay(500)
+    emit("Второе значение")
+    delay(500)
+    throw RuntimeException("Произошла ошибка!")
+}.catch { exception ->
+    emit("Ошибка обработана: ${exception.message}")
+}
+
+
+@Composable
+fun FlowScreen(modifier: Modifier) {
+    var flowValues by remember { mutableStateOf<List<String>>(emptyList()) }
+    val scope = rememberCoroutineScope()
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) {
+            items(flowValues.reversed()) { value ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Text(
+                        text = value,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            onClick = {
+                flowValues = emptyList()
+                scope.launch {
+                    numberFlow().collect { value ->
+                        flowValues = flowValues + "Число: $value"
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Запустить Flow")
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Button(
+            onClick = {
+                flowValues = emptyList()
+                scope.launch {
+                    transformedFlow(numberFlow()).collect { value ->
+                        flowValues = flowValues + "Квадрат четного: $value"
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Запустить преобразованный Flow")
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Button(
+            onClick = {
+                flowValues = emptyList()
+                scope.launch {
+                    errorFlow().collect { value ->
+                        flowValues = flowValues + value
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Запустить Flow с ошибкой")
         }
     }
 }
