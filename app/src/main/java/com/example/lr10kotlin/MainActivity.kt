@@ -31,7 +31,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             Lr10kotlinTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    FlowScreen(modifier = Modifier.padding(innerPadding))
+                    StateFlowScreen(modifier = Modifier.padding(innerPadding))
                 }
             }
         }
@@ -261,6 +261,117 @@ fun FlowScreen(modifier: Modifier) {
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Запустить Flow с ошибкой")
+        }
+    }
+}
+
+@Composable
+fun StateFlowScreen(modifier: Modifier) {
+
+    val counterStateFlow = remember { MutableStateFlow(0) }
+    val counter: StateFlow<Int> = counterStateFlow.asStateFlow()
+    val counterValue by counter.collectAsState()
+
+
+    val isAutoIncrementingStateFlow = remember { MutableStateFlow(false) }
+    val isAutoIncrementing: StateFlow<Boolean> = isAutoIncrementingStateFlow.asStateFlow()
+    val isAutoIncrementingValue by isAutoIncrementing.collectAsState()
+
+    val scope = rememberCoroutineScope()
+    var autoIncrementJob by remember { mutableStateOf<Job?>(null) }
+
+    fun increment() {
+        counterStateFlow.value += 1
+    }
+
+    fun decrement() {
+        counterStateFlow.value -= 1
+    }
+
+    fun reset() {
+        counterStateFlow.value = 0
+    }
+
+    fun incrementBy(value: Int) {
+        counterStateFlow.value += value
+    }
+
+    fun toggleAutoIncrement() {
+        if (isAutoIncrementingValue) {
+            isAutoIncrementingStateFlow.value = false
+            autoIncrementJob?.cancel()
+            autoIncrementJob = null
+        } else {
+            isAutoIncrementingStateFlow.value = true
+            autoIncrementJob = scope.launch {
+                while (true) {
+                    delay(1000)
+                    counterStateFlow.value += 1
+                }
+            }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            autoIncrementJob?.cancel()
+        }
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = counterValue.toString(),
+            style = MaterialTheme.typography.displayLarge,
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        if (isAutoIncrementingValue) {
+            Text("Автоинкремент активен", style = MaterialTheme.typography.bodyMedium)
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Button(onClick = { decrement() }) {
+                Text("-1")
+            }
+            Button(onClick = { increment() }) {
+                Text("+1")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Button(onClick = { reset() }) {
+                Text("Сброс")
+            }
+            Button(onClick = { incrementBy(5) }) {
+                Text("+5")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Button(
+            onClick = { toggleAutoIncrement() },
+            colors = if (isAutoIncrementingValue)
+                ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+            else
+                ButtonDefaults.buttonColors()
+        ) {
+            Text(if (isAutoIncrementingValue) "Остановить автоинкремент" else "Запустить автоинкремент")
         }
     }
 }
